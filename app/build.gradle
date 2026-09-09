@@ -57,7 +57,7 @@ android {
         applicationId "com.pixivo.popdrop"
         minSdkVersion 21
         targetSdkVersion 36
-        versionCode 1
+        versionCode 3
         versionName "1"
 
         // The name for the application
