@@ -1,0 +1,4 @@
+#Wed Sep 09 13:53:12 CEST 2026
+base.0=C\:\\Users\\gamel\\OneDrive\\Desktop\\Lim\\JS-Everything\\Game-Mobiles\\Orbit Drift\\Pop-Drop\\app\\build\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
+renamed.0=classes.dex
+path.0=classes.dex
