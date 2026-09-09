@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Balloon Pop Arcade - Full HD Responsive</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
+        
+        body {
+            background: radial-gradient(circle at center, #181028 0%, #07040f 100%);
+            color: #ffffff;
+            font-family: 'Outfit', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        canvas {
+            box-shadow: 0 0 50px rgba(236, 72, 153, 0.15), inset 0 0 30px rgba(255, 255, 255, 0.03);
+        }
+        @keyframes shake {
+            0% { transform: translate(0, 0); }
+            20% { transform: translate(-4px, 4px); }
+            40% { transform: translate(4px, -4px); }
+            60% { transform: translate(-2px, 2px); }
+            100% { transform: translate(0, 0); }
+        }
+        .shake { animation: shake 0.25s ease-in-out; }
+
+        @keyframes popIn {
+            0% { transform: scale(0.4); opacity: 0; }
+            70% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop { animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        .menu-screen {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .glass-panel {
+            background: rgba(22, 16, 40, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center h-screen w-screen m-0 select-none">
+
+    <!-- Game Header UI -->
+    <div id="game-header" class="absolute top-6 w-full max-w-[420px] flex justify-between items-center px-6 pointer-events-none z-10 hidden">
+        <div class="flex items-center gap-2.5 pointer-events-auto">
+            <button onclick="pauseGame()" class="glass-panel w-11 h-11 rounded-2xl flex items-center justify-center hover:bg-white/10 active:scale-95 transition text-pink-300 font-bold shadow-md text-lg">
+                ⏸
+            </button>
+            <div class="glass-panel px-3.5 py-1.5 rounded-2xl flex flex-col">
+                <span class="text-[10px] text-pink-400 font-extrabold tracking-widest uppercase">Score</span>
+                <span id="score-display" class="text-xl font-black tracking-tight text-white leading-none">0</span>
+            </div>
+        </div>
+        
+        <!-- Next Item Preview Header Container with Canvas Preview -->
+        <div class="glass-panel px-4 py-2 rounded-2xl flex items-center gap-3 pointer-events-auto border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+            <div class="flex flex-col text-right">
+                <span class="text-[10px] text-cyan-400 font-extrabold tracking-widest uppercase">Next</span>
+                <span id="next-name" class="text-[11px] font-bold text-slate-200 leading-none">Bubble</span>
+            </div>
+            <div class="relative w-10 h-10 flex items-center justify-center bg-black/40 rounded-xl border border-white/15 overflow-hidden">
+                <canvas id="previewCanvas" width="40" height="40" class="w-10 h-10"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="container" class="relative flex items-center justify-center w-full h-full max-w-[480px] max-h-[900px]">
+        <canvas id="gameCanvas" class="rounded-3xl border border-slate-800/80 bg-[#05030c] w-full h-full object-contain"></canvas>
+        
+        <!-- Countdown Overlay -->
+        <div id="countdown-overlay" class="absolute inset-0 bg-[#07040f]/70 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center z-20 hidden pointer-events-none">
+            <div id="countdown-number" class="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-tr from-pink-400 via-purple-300 to-cyan-400 animate-pop">
+                3
+            </div>
+        </div>
+
+        <!-- UI Screens Overlay Container -->
+        <div id="overlay-container" class="absolute inset-0 bg-[#07040f]/92 backdrop-blur-xl rounded-3xl flex flex-col items-center justify-center p-6 text-center z-20">
+            
+            <!-- SCREEN 1: MAIN MENU -->
+            <!-- Removed 'relative' from screen-main so the absolute sound button anchors to the overlay-container -->
+            <div id="screen-main" class="menu-screen flex flex-col items-center w-full max-w-xs">
+                
+                <!-- Top-Right Sound Control Button for Main Menu -->
+                <button onclick="toggleAudioMute()" id="main-sound-btn" class="absolute top-6 right-6 glass-panel w-11 h-11 rounded-2xl flex items-center justify-center text-lg hover:bg-white/10 active:scale-95 transition shadow-lg">
+                    🔊
+                </button>
+
+                <div class="w-24 h-24 bg-gradient-to-tr from-pink-500 via-purple-600 to-cyan-400 rounded-3xl flex items-center justify-center shadow-2xl shadow-pink-500/30 mb-6 text-4xl animate-bounce">
+                    🎈
+                </div>
+                <h1 class="text-4xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-300 to-cyan-400 mb-1">BALLOON POP</h1>
+                <p class="text-slate-400 text-xs mb-6 font-medium">Physics Merge Arcade Challenge</p>
+                
+                <div class="glass-panel w-full py-2.5 rounded-2xl mb-4 flex items-center justify-center gap-2">
+                    <span class="text-xs text-amber-400 font-bold uppercase tracking-wider">High Score:</span>
+                    <span id="menu-highscore" class="text-base font-black text-white">0</span>
+                </div>
+
+                <div class="flex flex-col gap-2.5 w-full mb-2">
+                    <button onclick="startGameAction()" class="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-500 hover:opacity-95 active:scale-95 transition font-black rounded-2xl shadow-lg shadow-pink-600/30 text-base tracking-wider text-white">
+                        PLAY GAME
+                    </button>
+                    <button onclick="switchScreen('shop')" class="w-full py-3.5 glass-panel hover:bg-white/10 active:scale-95 transition font-bold rounded-2xl text-sm text-slate-300">
+                        BALLOON STYLES
+                    </button>
+                </div>
+
+                <button onclick="quitGameAction()" class="w-full py-3 bg-rose-500/15 border border-rose-500/30 hover:bg-rose-500/25 active:scale-95 transition font-bold rounded-2xl text-xs text-rose-300">
+                    QUIT GAME
+                </button>
+            </div>
+
+            <!-- SCREEN 2: SHOP / STYLES -->
+            <div id="screen-shop" class="menu-screen flex flex-col items-center w-full max-w-xs hidden">
+                <h2 class="text-2xl font-black text-white mb-1">BALLOON STYLES</h2>
+                <p class="text-slate-400 text-xs mb-4 font-medium">Choose your game piece shapes</p>
+                
+                <div class="grid grid-cols-2 gap-2.5 w-full mb-5 max-h-[320px] overflow-y-auto pr-1">
+                    <div onclick="selectSkin('balloons')" id="skin-balloons" class="p-3 rounded-2xl glass-panel border-2 border-pink-500 cursor-pointer flex flex-col items-center transition">
+                        <span class="text-lg mb-0.5">🎈</span>
+                        <span class="text-[11px] font-bold text-pink-300">Classic Balloons</span>
+                    </div>
+                    <div onclick="selectSkin('bricks')" id="skin-bricks" class="p-3 rounded-2xl glass-panel border-2 border-slate-700 cursor-pointer flex flex-col items-center transition opacity-60">
+                        <span class="text-lg mb-0.5">🧱</span>
+                        <span class="text-[11px] font-bold text-slate-400">Tetris Bricks</span>
+                    </div>
+                    <div onclick="selectSkin('basketballs')" id="skin-basketballs" class="p-3 rounded-2xl glass-panel border-2 border-slate-700 cursor-pointer flex flex-col items-center transition opacity-60">
+                        <span class="text-lg mb-0.5">🏀</span>
+                        <span class="text-[11px] font-bold text-slate-400">Neon Balls</span>
+                    </div>
+                    <div onclick="selectSkin('stars')" id="skin-stars" class="p-3 rounded-2xl glass-panel border-2 border-slate-700 cursor-pointer flex flex-col items-center transition opacity-60">
+                        <span class="text-lg mb-0.5">⭐</span>
+                        <span class="text-[11px] font-bold text-slate-400">Star Orbs</span>
+                    </div>
+                    <div onclick="selectSkin('hearts')" id="skin-hearts" class="p-3 rounded-2xl glass-panel border-2 border-slate-700 cursor-pointer flex flex-col items-center transition opacity-60">
+                        <span class="text-lg mb-0.5">💖</span>
+                        <span class="text-[11px] font-bold text-slate-400">Love Hearts</span>
+                    </div>
+                    <div onclick="selectSkin('gems')" id="skin-gems" class="p-3 rounded-2xl glass-panel border-2 border-slate-700 cursor-pointer flex flex-col items-center transition opacity-60">
+                        <span class="text-lg mb-0.5">💎</span>
+                        <span class="text-[11px] font-bold text-slate-400">Crystal Gems</span>
+                    </div>
+                    <div onclick="selectSkin('emojis')" id="skin-emojis" class="p-3 rounded-2xl glass-panel border-2 border-slate-700 cursor-pointer flex flex-col items-center transition opacity-60">
+                        <span class="text-lg mb-0.5">😎</span>
+                        <span class="text-[11px] font-bold text-slate-400">Smiley Faces</span>
+                    </div>
+                    <div onclick="selectSkin('fruits')" id="skin-fruits" class="p-3 rounded-2xl glass-panel border-2 border-slate-700 cursor-pointer flex flex-col items-center transition opacity-60">
+                        <span class="text-lg mb-0.5">🍉</span>
+                        <span class="text-[11px] font-bold text-slate-400">Juicy Fruits</span>
+                    </div>
+                </div>
+
+                <button onclick="switchScreen('main')" class="w-full py-3.5 glass-panel hover:bg-white/10 active:scale-95 transition font-bold rounded-2xl text-sm text-slate-300">
+                    BACK TO MENU
+                </button>
+            </div>
+
+            <!-- SCREEN 3: PAUSE MENU -->
+            <div id="screen-pause" class="menu-screen flex flex-col items-center w-full max-w-xs hidden">
+                <div class="w-20 h-20 bg-pink-500/20 border-2 border-pink-500/50 rounded-full flex items-center justify-center text-3xl mb-4">
+                    ⏸
+                </div>
+                <h2 class="text-3xl font-black text-white mb-1">GAME PAUSED</h2>
+                <p class="text-slate-400 text-xs mb-6 font-medium">Catch your breath</p>
+                
+                <button onclick="resumeGameWithCountdown()" class="w-full py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-95 active:scale-95 transition font-black rounded-2xl shadow-lg shadow-pink-600/30 text-sm tracking-wider mb-2.5 text-white">
+                    RESUME
+                </button>
+                <button onclick="switchScreen('main')" class="w-full py-3.5 glass-panel hover:bg-white/10 active:scale-95 transition font-bold rounded-2xl text-sm text-slate-300">
+                    MAIN MENU
+                </button>
+            </div>
+
+            <!-- SCREEN 4: GAME OVER -->
+            <div id="screen-gameover" class="menu-screen flex flex-col items-center w-full max-w-xs hidden">
+                <div class="w-20 h-20 bg-rose-500/20 border-2 border-rose-500/50 rounded-full flex items-center justify-center text-3xl mb-4">
+                    💥
+                </div>
+                <h2 class="text-3xl font-black text-rose-400 mb-1">POP OVER!</h2>
+                <p id="gameover-desc" class="text-slate-300 text-sm mb-8 font-medium">Final Score: 0</p>
+                
+                <button onclick="startGameAction()" class="w-full py-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-95 active:scale-95 transition font-black rounded-2xl shadow-lg shadow-pink-600/30 text-base tracking-wider mb-3 text-white">
+                    TRY AGAIN
+                </button>
+                <button onclick="switchScreen('main')" class="w-full py-3.5 glass-panel hover:bg-white/10 active:scale-95 transition font-bold rounded-2xl text-sm text-slate-300">
+                    MAIN MENU
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        const scoreEl = document.getElementById('score-display');
+        const menuHighscoreEl = document.getElementById('menu-highscore');
+        const nextNameEl = document.getElementById('next-name');
+        const container = document.getElementById('container');
+        const gameHeader = document.getElementById('game-header');
+        const overlayContainer = document.getElementById('overlay-container');
+        const countdownOverlay = document.getElementById('countdown-overlay');
+        const countdownNumber = document.getElementById('countdown-number');
+        const mainSoundBtn = document.getElementById('main-sound-btn');
+        
+        const LOGICAL_WIDTH = 420;
+        const LOGICAL_HEIGHT = 740;
+        canvas.width = LOGICAL_WIDTH;
+        canvas.height = LOGICAL_HEIGHT;
+
+        const screens = {
+            main: document.getElementById('screen-main'),
+            shop: document.getElementById('screen-shop'),
+            pause: document.getElementById('screen-pause'),
+            gameover: document.getElementById('screen-gameover')
+        };
+
+        let gameRunning = false;
+        let isPaused = false;
+        let score = 0;
+        let displayScore = 0;
+        let highScore = localStorage.getItem('balloon_pop_highscore') || 0;
+        menuHighscoreEl.innerText = highScore;
+
+        let balloons = [];
+        let particles = [];
+        let floatingTexts = [];
+        let targetDropX = LOGICAL_WIDTH / 2;
+        let currentDropX = LOGICAL_WIDTH / 2;
+        let nextLevel = 0;
+        let canDrop = true;
+        let currentSkin = 'balloons';
+        let soundMuted = false;
+
+        let comboCount = 0;
+        let didMergeThisTurn = false;
+
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleAudioMute() {
+            soundMuted = !soundMuted;
+            if (mainSoundBtn) {
+                mainSoundBtn.innerText = soundMuted ? '🔇' : '🔊';
+            }
+        }
+
+        function quitGameAction() {
+            window.close();
+            // Fallback if window.close() is blocked by browser security restrictions
+            document.body.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-screen w-screen text-center p-6 bg-[#07040f]">
+                    <div class="w-20 h-20 bg-pink-500/20 border-2 border-pink-500/50 rounded-full flex items-center justify-center text-3xl mb-4 animate-bounce">🎈</div>
+                    <h1 class="text-3xl font-black text-white mb-2">Thanks for Playing!</h1>
+                    <p class="text-slate-400 text-sm mb-6">You can now safely close this tab or window.</p>
+                </div>
+            `;
+        }
+
+        function playSound(type, level = 0) {
+            if (soundMuted) return;
+            if (!audioCtx) return;
+            try {
+                let now = audioCtx.currentTime;
+
+                if (type === 'drop') {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(150, now + 0.05);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'pop') {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    let baseFreq = (420 + level * 90) * Math.min(1.5, 1 + comboCount * 0.1);
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(baseFreq, now);
+                    osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.5, now + 0.08);
+                    gain.gain.setValueAtTime(0.28, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'die') {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                } else if (type === 'beep') {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'go') {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, now);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch (e) {}
+        }
+
+        const BALLOON_TIERS = [
+            { name: 'Micro Bubble', radius: 17, points: 2, color: '#38bdf8', glow: '#38bdf8' },
+            { name: 'Mint Pop', radius: 24, points: 4, color: '#34d399', glow: '#34d399' },
+            { name: 'Sun Orb', radius: 33, points: 8, color: '#facc15', glow: '#facc15' },
+            { name: 'Coral Glow', radius: 42, points: 16, color: '#fb923c', glow: '#fb923c' },
+            { name: 'Ruby Sphere', radius: 53, points: 32, color: '#f43f5e', glow: '#f43f5e' },
+            { name: 'Violet Star', radius: 65, points: 64, color: '#a855f7', glow: '#a855f7' },
+            { name: 'Mega Prism', radius: 78, points: 128, color: '#ec4899', glow: '#ec4899' }
+        ];
+
+        function switchScreen(screenName) {
+            overlayContainer.classList.remove('hidden');
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            countdownOverlay.classList.add('hidden');
+            
+            if (screenName === 'main') {
+                gameRunning = false;
+                isPaused = false;
+                gameHeader.classList.add('hidden');
+                screens.main.classList.remove('hidden');
+                menuHighscoreEl.innerText = highScore;
+            } else if (screens[screenName]) {
+                gameHeader.classList.add('hidden');
+                screens[screenName].classList.remove('hidden');
+            }
+        }
+
+        function startGameAction() {
+            initAudio();
+            overlayContainer.classList.add('hidden');
+            gameHeader.classList.remove('hidden');
+            isPaused = false;
+            startNewGame();
+        }
+
+        function pauseGame() {
+            if (!gameRunning || isPaused) return;
+            isPaused = true;
+            gameHeader.classList.add('hidden');
+            overlayContainer.classList.remove('hidden');
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens.pause.classList.remove('hidden');
+        }
+
+        function resumeGameWithCountdown() {
+            if (!gameRunning || !isPaused) return;
+            overlayContainer.classList.add('hidden');
+            
+            countdownOverlay.classList.remove('hidden');
+            
+            let count = 3;
+            countdownNumber.innerText = count;
+            triggerPopAnimation(countdownNumber);
+            playSound('beep');
+
+            let countdownInterval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdownNumber.innerText = count;
+                    triggerPopAnimation(countdownNumber);
+                    playSound('beep');
+                } else if (count === 0) {
+                    countdownNumber.innerText = "GO!";
+                    triggerPopAnimation(countdownNumber);
+                    playSound('go');
+                } else {
+                    clearInterval(countdownInterval);
+                    countdownOverlay.classList.add('hidden');
+                    isPaused = false;
+                    gameHeader.classList.remove('hidden');
+                    loop();
+                }
+            }, 400);
+        }
+
+        function triggerPopAnimation(el) {
+            el.classList.remove('animate-pop');
+            void el.offsetWidth;
+            el.classList.add('animate-pop');
+        }
+
+        function selectSkin(skin) {
+            currentSkin = skin;
+            ['balloons', 'bricks', 'basketballs', 'stars', 'hearts', 'gems', 'emojis', 'fruits'].forEach(s => {
+                const el = document.getElementById(`skin-${s}`);
+                if (!el) return;
+                if (s === skin) {
+                    el.className = 'p-3 rounded-2xl glass-panel border-2 border-pink-500 cursor-pointer flex flex-col items-center transition';
+                    const label = el.querySelector('span:last-child');
+                    if (label) label.className = 'text-[11px] font-bold text-pink-300';
+                } else {
+                    el.className = 'p-3 rounded-2xl glass-panel border-2 border-slate-700 cursor-pointer flex flex-col items-center transition opacity-60';
+                    const label = el.querySelector('span:last-child');
+                    if (label) label.className = 'text-[11px] font-bold text-slate-400';
+                }
+            });
+
+            updatePreviewStyle();
+        }
+function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const scaleX = canvas.width / rect.width;
+            return (clientX - rect.left) * scaleX;
+        }
+
+        window.addEventListener('pointerdown', (e) => {
+            if (!gameRunning || isPaused) return;
+            const x = getCanvasCoordinates(e);
+            targetDropX = Math.max(45, Math.min(LOGICAL_WIDTH - 45, x));
+            currentDropX = targetDropX; // Instantly snap to position on tap/click
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (!gameRunning || isPaused) return;
+            const x = getCanvasCoordinates(e);
+            targetDropX = Math.max(45, Math.min(LOGICAL_WIDTH - 45, x));
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            if (!gameRunning || isPaused || !canDrop) return;
+            
+            if (!didMergeThisTurn) {
+                comboCount = 0;
+            }
+            didMergeThisTurn = false;
+
+            dropBalloon(currentDropX, nextLevel);
+            playSound('drop');
+            canDrop = false;
+            nextLevel = Math.floor(Math.random() * 3);
+            updatePreviewStyle();
+            setTimeout(() => { canDrop = true; }, 300);
+        });
+
+        function startNewGame() {
+            score = 0;
+            displayScore = 0;
+            scoreEl.innerText = 0;
+            balloons = [];
+            particles = [];
+            floatingTexts = [];
+            nextLevel = 0;
+            comboCount = 0;
+            didMergeThisTurn = false;
+            updatePreviewStyle();
+            gameRunning = true;
+            loop();
+        }
+
+        function drawItemCustom(targetCtx, skin, color, glow, radius, x, y, scale = 1) {
+            targetCtx.save();
+            targetCtx.translate(x, y);
+            targetCtx.scale(scale, scale);
+
+            if (skin === 'balloons') {
+                targetCtx.fillStyle = color;
+                targetCtx.shadowColor = glow;
+                targetCtx.shadowBlur = 12;
+                targetCtx.beginPath();
+                targetCtx.ellipse(0, 0, radius, radius * 1.12, 0, 0, Math.PI * 2);
+                targetCtx.fill();
+
+                targetCtx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+                targetCtx.shadowBlur = 0;
+                targetCtx.beginPath();
+                targetCtx.ellipse(-radius * 0.3, -radius * 0.35, radius * 0.24, radius * 0.12, Math.PI / 4, 0, Math.PI * 2);
+                targetCtx.fill();
+
+                targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                targetCtx.lineWidth = 1.5;
+                targetCtx.beginPath();
+                targetCtx.moveTo(0, radius * 1.12);
+                targetCtx.quadraticCurveTo(4, radius * 1.35, 0, radius * 1.55);
+                targetCtx.stroke();
+            } else if (skin === 'bricks') {
+                targetCtx.fillStyle = color;
+                targetCtx.shadowColor = glow;
+                targetCtx.shadowBlur = 12;
+                let size = radius * 1.6;
+                targetCtx.fillRect(-size/2, -size/2, size, size);
+
+                targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                targetCtx.lineWidth = 2;
+                targetCtx.strokeRect(-size/2, -size/2, size, size);
+
+                targetCtx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                targetCtx.fillRect(-size/2 + 3, -size/2 + 3, size - 6, 4);
+            } else if (skin === 'basketballs') {
+                targetCtx.fillStyle = color;
+                targetCtx.shadowColor = glow;
+                targetCtx.shadowBlur = 12;
+                targetCtx.beginPath();
+                targetCtx.arc(0, 0, radius, 0, Math.PI * 2);
+                targetCtx.fill();
+
+                targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+                targetCtx.lineWidth = 2;
+                targetCtx.beginPath();
+                targetCtx.arc(0, 0, radius, 0, Math.PI * 2);
+                targetCtx.moveTo(-radius, 0); targetCtx.lineTo(radius, 0);
+                targetCtx.moveTo(0, -radius); targetCtx.lineTo(0, radius);
+                targetCtx.stroke();
+
+                targetCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                targetCtx.beginPath();
+                targetCtx.arc(-radius * 0.35, -radius * 0.35, radius * 0.25, 0, Math.PI * 2);
+                targetCtx.fill();
+            } else if (skin === 'stars') {
+                targetCtx.fillStyle = color;
+                targetCtx.shadowColor = glow;
+                targetCtx.shadowBlur = 14;
+                targetCtx.beginPath();
+                let spikes = 5, outerRadius = radius * 1.1, innerRadius = radius * 0.5;
+                for (let i = 0; i < spikes * 2; i++) {
+                    let r = (i % 2 === 0) ? outerRadius : innerRadius;
+                    let angle = (i * Math.PI) / spikes - Math.PI / 2;
+                    let sx = Math.cos(angle) * r, sy = Math.sin(angle) * r;
+                    if (i === 0) targetCtx.moveTo(sx, sy); else targetCtx.lineTo(sx, sy);
+                }
+                targetCtx.closePath();
+                targetCtx.fill();
+
+                targetCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                targetCtx.beginPath();
+                targetCtx.arc(0, 0, radius * 0.3, 0, Math.PI * 2);
+                targetCtx.fill();
+            } else if (skin === 'hearts') {
+                targetCtx.fillStyle = color;
+                targetCtx.shadowColor = glow;
+                targetCtx.shadowBlur = 12;
+                let r = radius * 0.9;
+                targetCtx.beginPath();
+                targetCtx.moveTo(0, r * 0.6);
+                targetCtx.bezierCurveTo(-r, -r * 0.2, -r * 1.2, r * 0.6, 0, r * 1.3);
+                targetCtx.bezierCurveTo(r * 1.2, r * 0.6, r, -r * 0.2, 0, r * 0.6);
+                targetCtx.fill();
+
+                targetCtx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+                targetCtx.beginPath();
+                targetCtx.ellipse(-r * 0.3, -r * 0.05, r * 0.2, r * 0.1, Math.PI / 4, 0, Math.PI * 2);
+                targetCtx.fill();
+            } else if (skin === 'gems') {
+                targetCtx.fillStyle = color;
+                targetCtx.shadowColor = glow;
+                targetCtx.shadowBlur = 15;
+                let s = radius * 1.1;
+                targetCtx.beginPath();
+                targetCtx.moveTo(0, -s);
+                targetCtx.lineTo(s * 0.8, -s * 0.3);
+                targetCtx.lineTo(s * 0.5, s);
+                targetCtx.lineTo(-s * 0.5, s);
+                targetCtx.lineTo(-s * 0.8, -s * 0.3);
+                targetCtx.closePath();
+                targetCtx.fill();
+
+                targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                targetCtx.lineWidth = 1.5;
+                targetCtx.stroke();
+            } else if (skin === 'emojis') {
+                targetCtx.fillStyle = color;
+                targetCtx.shadowColor = glow;
+                targetCtx.shadowBlur = 12;
+                targetCtx.beginPath();
+                targetCtx.arc(0, 0, radius, 0, Math.PI * 2);
+                targetCtx.fill();
+
+                targetCtx.fillStyle = '#000000';
+                let eyeOffset = radius * 0.35, eyeSize = Math.max(2, radius * 0.15);
+                targetCtx.beginPath();
+                targetCtx.arc(-eyeOffset, -eyeOffset * 0.5, eyeSize, 0, Math.PI * 2);
+                targetCtx.arc(eyeOffset, -eyeOffset * 0.5, eyeSize, 0, Math.PI * 2);
+                targetCtx.fill();
+
+                targetCtx.strokeStyle = '#000000';
+                targetCtx.lineWidth = 2;
+                targetCtx.beginPath();
+                targetCtx.arc(0, radius * 0.1, radius * 0.45, 0, Math.PI, false);
+                targetCtx.stroke();
+            } else if (skin === 'fruits') {
+                targetCtx.fillStyle = color;
+                targetCtx.shadowColor = glow;
+                targetCtx.shadowBlur = 12;
+                targetCtx.beginPath();
+                targetCtx.arc(0, 0, radius, 0, Math.PI * 2);
+                targetCtx.fill();
+
+                targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                targetCtx.lineWidth = 2;
+                targetCtx.beginPath();
+                targetCtx.arc(0, 0, radius * 0.75, 0, Math.PI * 2);
+                targetCtx.stroke();
+
+                targetCtx.fillStyle = '#22c55e';
+                targetCtx.beginPath();
+                targetCtx.ellipse(0, -radius * 0.95, radius * 0.25, radius * 0.12, 0, 0, Math.PI * 2);
+                targetCtx.fill();
+            }
+
+            targetCtx.restore();
+        }
+
+        function updatePreviewStyle() {
+            if (!nextPreviewCanvas || !nextNameEl) return;
+            const tier = BALLOON_TIERS[nextLevel];
+            if (!tier) return;
+            nextNameEl.innerText = tier.name;
+
+            previewCtx.clearRect(0, 0, 40, 40);
+            drawItemCustom(previewCtx, currentSkin, tier.color, tier.glow, 12, 20, 20, 0.9);
+        }
+
+        const nextPreviewCanvas = document.getElementById('previewCanvas');
+
+        function triggerShake() {
+            container.classList.add('shake');
+            setTimeout(() => container.classList.remove('shake'), 250);
+        }
+
+        function dropBalloon(x, level) {
+            const tier = BALLOON_TIERS[level];
+            balloons.push({
+                x: x,
+                y: 65,
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: 0.9,
+                level: level,
+                radius: tier.radius,
+                color: tier.color,
+                glow: tier.glow,
+                mass: tier.radius * tier.radius,
+                wobbleSpeed: 0.04 + Math.random() * 0.04,
+                wobbleAngle: Math.random() * Math.PI,
+                merged: false,
+                scale: 0.3
+            });
+        }
+
+        function createConfetti(x, y, color, intensity = 1) {
+            const count = Math.floor(18 * intensity);
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = (2 + Math.random() * 5) * Math.min(1.6, intensity);
+                particles.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    alpha: 1,
+                    color: color,
+                    size: 2.5 + Math.random() * 3.5
+                });
+            }
+        }
+
+        function addFloatingText(text, x, y, isCombo = false) {
+            floatingTexts.push({ text: text, x: x, y: y, alpha: 1, vy: -1.4, isCombo: isCombo });
+        }
+
+        function updatePhysics() {
+            currentDropX += (targetDropX - currentDropX) * 0.22;
+
+            if (displayScore < score) {
+                let diff = score - displayScore;
+                displayScore += Math.max(1, Math.ceil(diff * 0.04));
+                scoreEl.innerText = displayScore;
+            }
+
+            const subSteps = 6;
+            for (let step = 0; step < subSteps; step++) {
+                let dt = 1 / subSteps;
+
+                for (let i = 0; i < balloons.length; i++) {
+                    let b = balloons[i];
+                    b.vy += 0.4 * dt; 
+                    b.x += b.vx * dt;
+                    b.y += b.vy * dt;
+                    b.vx *= Math.pow(0.985, dt);
+
+                    b.wobbleAngle += b.wobbleSpeed;
+                    b.vx += Math.sin(b.wobbleAngle) * 0.035;
+
+                    if (b.scale < 1) b.scale += 0.1 * dt * 10;
+
+                    const wallMargin = 15;
+                    if (b.x - b.radius < wallMargin) {
+                        b.x = wallMargin + b.radius;
+                        b.vx *= -0.25;
+                    }
+                    if (b.x + b.radius > LOGICAL_WIDTH - wallMargin) {
+                        b.x = LOGICAL_WIDTH - wallMargin - b.radius;
+                        b.vx *= -0.25;
+                    }
+
+                    const floorMargin = 32;
+                    if (b.y + b.radius > LOGICAL_HEIGHT - floorMargin) {
+                        b.y = LOGICAL_HEIGHT - floorMargin - b.radius;
+                        b.vy *= -0.1;
+                        b.vx *= 0.8;
+                    }
+                }
+
+                for (let i = 0; i < balloons.length; i++) {
+                    for (let j = i + 1; j < balloons.length; j++) {
+                        let b1 = balloons[i];
+                        let b2 = balloons[j];
+                        let dx = b2.x - b1.x;
+                        let dy = b2.y - b1.y;
+                        let dist = Math.sqrt(dx * dx + dy * dy);
+                        let minDist = b1.radius + b2.radius;
+
+                        if (dist < minDist) {
+                            if (b1.level === b2.level && !b1.merged && !b2.merged && b1.level < BALLOON_TIERS.length - 1) {
+                                b1.merged = true;
+                                b2.merged = true;
+
+                                didMergeThisTurn = true;
+                                comboCount++;
+
+                                let basePoints = BALLOON_TIERS[b1.level].points * 30;
+                                let comboMultiplier = Math.min(4, 1 + (comboCount - 1) * 0.5);
+                                let pointsEarned = Math.round(basePoints * comboMultiplier);
+                                
+                                score += pointsEarned;
+
+                                let midX = (b1.x + b2.x) / 2;
+                                let midY = (b1.y + b2.y) / 2;
+
+                                playSound('pop', b1.level);
+                                createConfetti(midX, midY, BALLOON_TIERS[b1.level + 1].glow, 1 + (comboCount * 0.2));
+                                
+                                addFloatingText(`+${pointsEarned}`, midX, midY - 15);
+                                if (comboCount > 1) {
+                                    addFloatingText(`${comboCount}x COMBO!`, midX, midY - 35, true);
+                                }
+
+                                if (b1.level >= 2 || comboCount >= 2) triggerShake();
+
+                                let newLevel = b1.level + 1;
+                                let tier = BALLOON_TIERS[newLevel];
+                                balloons.push({
+                                    x: midX,
+                                    y: midY,
+                                    vx: (Math.random() - 0.5) * 1.5,
+                                    vy: -2.8,
+                                    level: newLevel,
+                                    radius: tier.radius,
+                                    color: tier.color,
+                                    glow: tier.glow,
+                                    mass: tier.radius * tier.radius,
+                                    wobbleSpeed: 0.04 + Math.random() * 0.04,
+                                    wobbleAngle: Math.random() * Math.PI,
+                                    merged: false,
+                                    scale: 0.6
+                                });
+                            } else {
+                                let overlap = minDist - dist;
+                                let nx = dx / dist;
+                                let ny = dy / dist;
+                                let totalMass = b1.mass + b2.mass;
+
+                                b1.x -= nx * overlap * (b2.mass / totalMass);
+                                b1.y -= ny * overlap * (b2.mass / totalMass);
+                                b2.x += nx * overlap * (b1.mass / totalMass);
+                                b2.y += ny * overlap * (b1.mass / totalMass);
+
+                                let kx = b1.vx - b2.vx;
+                                let ky = b1.vy - b2.vy;
+                                let p = 2 * (nx * kx + ny * ky) / totalMass;
+
+                                b1.vx -= p * b2.mass * nx * 0.72;
+                                b1.vy -= p * b2.mass * ny * 0.72;
+                                b2.vx += p * b1.mass * nx * 0.72;
+                                b2.vy += p * b1.mass * ny * 0.72;
+                            }
+                        }
+                    }
+                }
+            }
+
+            balloons = balloons.filter(b => !b.merged);
+
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.035;
+                if (p.alpha <= 0) particles.splice(index, 1);
+            });
+
+            floatingTexts.forEach((ft, index) => {
+                ft.y += ft.vy;
+                ft.alpha -= 0.025;
+                if (ft.alpha <= 0) floatingTexts.splice(index, 1);
+            });
+
+            for (let i = 0; i < balloons.length; i++) {
+                if (balloons[i].y - balloons[i].radius < 105 && Math.abs(balloons[i].vy) < 0.3 && balloons[i].scale >= 1) {
+                    triggerGameOver();
+                    break;
+                }
+            }
+        }
+
+        function triggerGameOver() {
+            gameRunning = false;
+            playSound('die');
+            
+            let isNewHighScore = false;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('balloon_pop_highscore', highScore);
+                isNewHighScore = true;
+            }
+
+            gameHeader.classList.add('hidden');
+            overlayContainer.classList.remove('hidden');
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens.gameover.classList.remove('hidden');
+            
+            document.getElementById('gameover-desc').innerHTML = `Final Score: <span class="text-white font-black">${score}</span><br>` +
+                (isNewHighScore ? `<span class="text-xs text-pink-400 font-extrabold mt-1.5 inline-block animate-bounce">🎉 NEW HIGH SCORE! 🎉</span><br>` : '') +
+                `<span class="text-xs text-amber-400 font-bold mt-1 inline-block">High Score: ${highScore}</span>`;
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+            ctx.strokeStyle = 'rgba(236, 72, 153, 0.4)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.roundRect(12, 95, LOGICAL_WIDTH - 24, LOGICAL_HEIGHT - 120, 20);
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 6]);
+            ctx.beginPath();
+            ctx.moveTo(currentDropX, 95);
+            ctx.lineTo(currentDropX, LOGICAL_HEIGHT - 35);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.strokeStyle = 'rgba(244, 63, 94, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]);
+            ctx.beginPath();
+            ctx.moveTo(15, 120);
+            ctx.lineTo(LOGICAL_WIDTH - 15, 120);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            if (gameRunning && !isPaused && canDrop) {
+                let tier = BALLOON_TIERS[nextLevel];
+                drawItemCustom(ctx, currentSkin, tier.color, tier.glow, tier.radius, currentDropX, 65, 0.85);
+            }
+
+            balloons.forEach(b => drawItemCustom(ctx, currentSkin, b.color, b.glow, b.radius, b.x, b.y, b.scale));
+
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, ft.alpha);
+                ctx.font = ft.isCombo ? '900 18px "Outfit", sans-serif' : '800 15px "Outfit", sans-serif';
+                ctx.fillStyle = ft.isCombo ? '#facc15' : '#ffffff';
+                ctx.shadowColor = ft.isCombo ? '#facc15' : '#ec4899';
+                ctx.shadowBlur = 10;
+                ctx.textAlign = 'center';
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            });
+        }
+
+        function loop() {
+            if (!gameRunning) return;
+            if (!isPaused) {
+                updatePhysics();
+                drawGame();
+                requestAnimationFrame(loop);
+            }
+        }
+    </script>
+</body>
+</html>
